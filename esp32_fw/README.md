@@ -1,4 +1,1 @@
-# audio_tdoa
-
-get_idf
-idf.py build
+# ESP32 transmitter firmware
