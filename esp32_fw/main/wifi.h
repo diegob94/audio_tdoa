@@ -1,9 +1,9 @@
 #ifndef WIFI_HEADER_GUARD
 #define WIFI_HEADER_GUARD
 
-#define ESP_WIFI_SSID      "myssid"
-#define ESP_WIFI_PASSWORD  "mypassword"
-#define ESP_MAXIMUM_RETRY  10
+#define ESP_WIFI_SSID      CONFIG_ESP_WIFI_SSID
+#define ESP_WIFI_PASSWORD  CONFIG_ESP_WIFI_PASSWORD
+#define ESP_MAXIMUM_RETRY  CONFIG_ESP_MAXIMUM_RETRY
 
 esp_err_t wifi_init_sta(void);
 

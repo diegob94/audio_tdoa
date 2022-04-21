@@ -18,4 +18,23 @@ menu "audio_tdoa configuration"
         help
             Set the Maximum retry to avoid station reconnecting to the AP unlimited when the AP is really inexistent.
 
+    config TDOA_SIGNAL_ID
+        int "Audio signal identifier"
+        default 0
+        help
+            Set the integer to identify the audio signal from this transmitter.
+
+    config TDOA_SERVER_IPV4_ADDR
+        string "IPV4 Address"
+        default "192.168.0.2"
+        help
+            TDOA server IPV4 address.
+
+    config TDOA_SERVER_PORT
+        int "Port"
+        range 0 65535
+        default 3333
+        help
+            TDOA server port.
+
 endmenu

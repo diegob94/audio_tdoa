@@ -1,4 +1,4 @@
-# ESP32 transmitter firmware
+# ESP32 audio transmitter firmware
 
 ```bash
 source get_idf.sh

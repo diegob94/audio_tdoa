@@ -11,6 +11,8 @@
 
 #include "wifi.h"
 #include "gpio.h"
+#include "client.h"
+#include <string.h>
 
 static const char *TAG = "main";
 
@@ -24,7 +26,7 @@ void app_main(void) {
     ESP_ERROR_CHECK(ret);
 
     gpio_init_led();
-    gpio_init_sync_test_input();
+    //gpio_init_sync_test_input();
     gpio_set_blink_period(500);
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     esp_err_t wifi_status = wifi_init_sta();
@@ -36,4 +38,15 @@ void app_main(void) {
         vTaskDelete(NULL);
     }
     ESP_LOGI(TAG,"wifi success");
+    client_init();
+
+    ESP_LOGI(TAG,"starting client test!");
+    char buf[512];
+    char buf1[1024];
+    while(1) {
+        int len = client_recv(buf,sizeof(buf));
+        buf[len] = 0;
+        sprintf(buf1,"your message is: %s",buf);
+        client_send(buf1,strlen(buf1));
+    }
 }
