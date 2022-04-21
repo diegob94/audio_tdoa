@@ -9,6 +9,6 @@
 
 esp_err_t client_init(void);
 esp_err_t client_send(void*, size_t);
-ssize_t client_recv(char*, size_t);
+size_t client_recv(char*, size_t);
 
 #endif // CLIENT_HEADER_GUARD
