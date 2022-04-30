@@ -6,4 +6,5 @@ manifest:
     - name: zephyr
       remote: zephyrproject-rtos
       revision: v3.0.0
-      import: true
+      import:
+        name-allowlist: hal_espressif
