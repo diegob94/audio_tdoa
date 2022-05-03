@@ -1,103 +1,84 @@
 #include "client.h"
 
-#include <stdio.h>
-#include <string.h>
-#include <sys/param.h>
-#include "esp_err.h"
+#include "esp_wifi.h"
+#include "esp_system.h"
+#include "nvs_flash.h"
+#include "esp_event.h"
+
 #include "freertos/FreeRTOS.h"
-#include "freertos/message_buffer.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "esp_system.h"
-#include "esp_wifi.h"
-#include "esp_event.h"
+#include "freertos/message_buffer.h"
+
 #include "esp_log.h"
-#include "nvs_flash.h"
-#include "esp_netif.h"
-#include "lwip/err.h"
-#include "lwip/sockets.h"
+#include "esp_websocket_client.h"
+#include "esp_event.h"
+
+#include "sdkconfig.h"
 
 static const char *TAG = "client";
-static int sock = -1;
-static TaskHandle_t clientHandle = NULL;
-static TaskHandle_t send_taskHandle = NULL;
-static TaskHandle_t recv_taskHandle = NULL;
-static void send_task(void *pvParameters);
-static void recv_task(void *pvParameters);
-MessageBufferHandle_t recv_xMessageBuffer = NULL;
+
 MessageBufferHandle_t send_xMessageBuffer = NULL;
+static TaskHandle_t clientHandle = NULL;
 
-static void tcp_client_task(void *pvParameters){
-    char host_ip[] = HOST_IP_ADDR;
-    int addr_family = 0;
-    int ip_protocol = 0;
+static void websocket_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
+{
+    esp_websocket_event_data_t *data = (esp_websocket_event_data_t *)event_data;
+    switch (event_id) {
+    case WEBSOCKET_EVENT_CONNECTED:
+        ESP_LOGI(TAG, "WEBSOCKET_EVENT_CONNECTED");
+        break;
+    case WEBSOCKET_EVENT_DISCONNECTED:
+        ESP_LOGI(TAG, "WEBSOCKET_EVENT_DISCONNECTED");
+        break;
+    case WEBSOCKET_EVENT_DATA:
+        ESP_LOGI(TAG, "WEBSOCKET_EVENT_DATA");
+        //ESP_LOGI(TAG, "Received opcode=%d", data->op_code);
+        //if (data->op_code == 0x08 && data->data_len == 2) {
+        //    ESP_LOGW(TAG, "Received closed message with code=%d", 256*data->data_ptr[0] + data->data_ptr[1]);
+        //} else {
+        //    ESP_LOGW(TAG, "Received=%.*s", data->data_len, (char *)data->data_ptr);
+        //}
+        //ESP_LOGW(TAG, "Total payload length=%d, data_len=%d, current payload offset=%d\r\n", data->payload_len, data->data_len, data->payload_offset);
 
-    while (1) {
-        if (sock != -1) {
-            ESP_LOGE(TAG, "Shutting down socket and restarting...");
-            shutdown(sock, 0);
-            close(sock);
-        }
-
-        struct sockaddr_in dest_addr;
-        dest_addr.sin_addr.s_addr = inet_addr(host_ip);
-        dest_addr.sin_family = AF_INET;
-        dest_addr.sin_port = htons(PORT);
-        addr_family = AF_INET;
-        ip_protocol = IPPROTO_IP;
-        sock = socket(addr_family, SOCK_STREAM, ip_protocol);
-        if (sock < 0) {
-            ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
-            continue;
-        }
-        ESP_LOGI(TAG, "Socket created, connecting to %s:%d", host_ip, PORT);
-
-        int err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr_in6));
-        if (err != 0) {
-            ESP_LOGE(TAG, "Socket unable to connect: errno %d", errno);
-            continue;
-        }
-        ESP_LOGI(TAG, "Successfully connected (%d)",err);
-
-        vTaskResume(send_taskHandle);
-        vTaskResume(recv_taskHandle);
-
-        vTaskSuspend(NULL);
+        break;
+    case WEBSOCKET_EVENT_ERROR:
+        ESP_LOGI(TAG, "WEBSOCKET_EVENT_ERROR");
+        break;
     }
-    vTaskDelete(NULL);
 }
+#define _GET_WS_URI(HOST,PORT) "ws://"HOST":"#PORT
+#define GET_WS_URI(HOST,PORT) _GET_WS_URI(HOST, PORT)
 
-static void send_task(void *pvParameters){
-    vTaskSuspend(NULL);
-    char buf[1024];
-    while(1){
-        size_t len = xMessageBufferReceive(send_xMessageBuffer,buf,sizeof(buf),portMAX_DELAY);
-        buf[len] = 0;
-        ESP_LOGI(TAG,"send_task (%d): %s",len,buf);
-        int err = send(sock, buf, len, 0);
-        if (err < 0) {
-            ESP_LOGE(TAG, "send_task: Socket error: errno %d", errno);
-            vTaskResume(clientHandle);
-            vTaskSuspend(NULL);
-        }
-    }
-    vTaskDelete(NULL);
-}
+static void ws_client_task(void *pvParameters){
+    esp_websocket_client_config_t websocket_cfg = {};
 
-static void recv_task(void *pvParameters){
-    vTaskSuspend(NULL);
-    char buf[1024];
-    while(1){
-        ssize_t len = recv(sock, buf, sizeof(buf), 0);
-        buf[len] = 0;
-        ESP_LOGI(TAG,"recv_task (%d): %s",len,buf);
-        if (len < 0) {
-            ESP_LOGE(TAG, "recv_task: Socket error: errno %d", errno);
-            vTaskResume(clientHandle);
-            vTaskSuspend(NULL);
-            continue;
+    websocket_cfg.uri = GET_WS_URI(CONFIG_TDOA_SERVER_IPV4_ADDR,CONFIG_TDOA_SERVER_PORT);
+
+    while(true){
+        ESP_LOGI(TAG, "Main loop: Connecting to %s...", websocket_cfg.uri);
+
+        esp_websocket_client_handle_t client = esp_websocket_client_init(&websocket_cfg);
+        esp_websocket_register_events(client, WEBSOCKET_EVENT_ANY, websocket_event_handler, (void *)client);
+
+        esp_websocket_client_start(client);
+        char buf[1024];
+        while(true){
+            ESP_LOGI(TAG,"send loop: start");
+            size_t len = xMessageBufferReceive(send_xMessageBuffer,buf,sizeof(buf),portMAX_DELAY);
+            buf[len] = 0;
+            ESP_LOGI(TAG,"send loop: dequed a data: %s",buf);
+            while(true){
+                if(esp_websocket_client_is_connected(client)){
+                    esp_websocket_client_send_text(client, buf, len, portMAX_DELAY);
+                    break;
+                }
+                vTaskDelay(1000 / portTICK_PERIOD_MS);
+            }
         }
-        xMessageBufferSend(recv_xMessageBuffer,buf,len,portMAX_DELAY);
+        esp_websocket_client_close(client, portMAX_DELAY);
+        ESP_LOGI(TAG, "Main loop: Websocket Stopped, re-opening...");
+        esp_websocket_client_destroy(client);
     }
     vTaskDelete(NULL);
 }
@@ -110,16 +91,24 @@ esp_err_t client_send(void* buf, size_t buf_size){
     return ESP_OK;
 }
 
-size_t client_recv(char* buf, size_t buf_size){
-    size_t len = xMessageBufferReceive(recv_xMessageBuffer,buf,buf_size,portMAX_DELAY);
-    return len;
-}
-
 esp_err_t client_init(void) {
-    recv_xMessageBuffer = xMessageBufferCreate(4096);
     send_xMessageBuffer = xMessageBufferCreate(4096);
-    xTaskCreate(send_task, "tcp_client_send", 2*4096, NULL, 5, &send_taskHandle);
-    xTaskCreate(recv_task, "tcp_client_recv", 2*4096, NULL, 5, &recv_taskHandle);
-    xTaskCreate(tcp_client_task, "tcp_client", 4096, NULL, 5, &clientHandle);
+    xTaskCreate(ws_client_task, "ws_client", 4096, NULL, 5, &clientHandle);
     return ESP_OK;
 }
+
+static void ws_client_test(void *pvParameters){
+    char buf[100];
+    for(int i = 0; i<10000; i++){
+        sprintf(buf,"i = %d\n",i);
+        ESP_LOGI(TAG,"ws_client_test: Send: %s",buf);
+        client_send(buf,strlen(buf));
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+    vTaskDelete(NULL);
+}
+
+void client_test(void) {
+    xTaskCreate(ws_client_test, "ws_client_test", 4096, NULL, 5, NULL);
+}
+

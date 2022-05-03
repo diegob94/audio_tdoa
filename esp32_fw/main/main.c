@@ -8,23 +8,26 @@
 #include "nvs_flash.h"
 #include "lwip/err.h"
 #include "lwip/sys.h"
+#include <string.h>
 
 #include "wifi.h"
 #include "gpio.h"
 #include "client.h"
-#include <string.h>
 
 static const char *TAG = "main";
 
 void app_main(void) {
-    //Initialize NVS
+//    esp_log_level_set("*", ESP_LOG_INFO);
+//    esp_log_level_set("WEBSOCKET_CLIENT", ESP_LOG_DEBUG);
+//    esp_log_level_set("TRANSPORT_WS", ESP_LOG_DEBUG);
+//    esp_log_level_set("TRANS_TCP", ESP_LOG_DEBUG);
+
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
-
     gpio_init_led();
     //gpio_init_sync_test_input();
     gpio_set_blink_period(500);
@@ -39,14 +42,6 @@ void app_main(void) {
     }
     ESP_LOGI(TAG,"wifi success");
     client_init();
-
-    ESP_LOGI(TAG,"starting client test!");
-    char buf[512];
-    char buf1[1024];
-    while(1) {
-        int len = client_recv(buf,sizeof(buf));
-        buf[len] = 0;
-        sprintf(buf1,"your message is: %s",buf);
-        client_send(buf1,strlen(buf1));
-    }
+    client_test();
 }
+
