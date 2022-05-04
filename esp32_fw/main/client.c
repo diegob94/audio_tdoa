@@ -23,7 +23,7 @@ static TaskHandle_t clientHandle = NULL;
 
 static void websocket_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
-    esp_websocket_event_data_t *data = (esp_websocket_event_data_t *)event_data;
+    //esp_websocket_event_data_t *data = (esp_websocket_event_data_t *)event_data;
     switch (event_id) {
     case WEBSOCKET_EVENT_CONNECTED:
         ESP_LOGI(TAG, "WEBSOCKET_EVENT_CONNECTED");
@@ -67,10 +67,10 @@ static void ws_client_task(void *pvParameters){
             ESP_LOGI(TAG,"send loop: start");
             size_t len = xMessageBufferReceive(send_xMessageBuffer,buf,sizeof(buf),portMAX_DELAY);
             buf[len] = 0;
-            ESP_LOGI(TAG,"send loop: dequed a data: %s",buf);
+            ESP_LOGI(TAG,"send loop: dequed message (%u bytes)",len);
             while(true){
                 if(esp_websocket_client_is_connected(client)){
-                    esp_websocket_client_send_text(client, buf, len, portMAX_DELAY);
+                    esp_websocket_client_send_bin(client, buf, len, portMAX_DELAY);
                     break;
                 }
                 vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -84,6 +84,7 @@ static void ws_client_task(void *pvParameters){
 }
 
 esp_err_t client_send(void* buf, size_t buf_size){
+    ESP_LOGI(TAG,"client_send %u bytes", buf_size);
     size_t len = xMessageBufferSend(send_xMessageBuffer,buf,buf_size,portMAX_DELAY);
     if(len == 0) {
         return ESP_FAIL;
