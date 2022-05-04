@@ -13,6 +13,7 @@
 #include "wifi.h"
 #include "gpio.h"
 #include "client.h"
+#include "audio.h"
 
 static const char *TAG = "main";
 
@@ -42,6 +43,16 @@ void app_main(void) {
     }
     ESP_LOGI(TAG,"wifi success");
     client_init();
-    client_test();
+    //client_test();
+    audio_init();
+
+    char data_recv[100];
+    size_t i2s_bytes_read = 0;
+    while(true){
+        audio_read(data_recv, 100, &i2s_bytes_read);
+        for(int i = 0; i < 100; i++){
+            ESP_LOGI(TAG,"i2s[%d] = %d",i,data_recv[i]);
+        }
+    }
 }
 
