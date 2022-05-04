@@ -4,7 +4,6 @@ import numpy as np
 import plotly.graph_objects as go
 import dash_bootstrap_components as dbc
 from dash_bootstrap_templates import load_figure_template
-from server import SignalServerProcess
 from dash.dependencies import Input, Output
 import queue
 
@@ -41,7 +40,11 @@ def update_data(n_intervals):
         return dict(x=[[x]], y=[[y]]), [0], 10
 
 if __name__ == '__main__':
-    signal_server = SignalServerProcess()
     app.run_server()
-    signal_server.stop()
 
+from tdoa_gui import init_app
+
+app = init_app()
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0")
