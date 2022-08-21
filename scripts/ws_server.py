@@ -12,6 +12,9 @@ async def echo(websocket):
     t = 0.995
     async for message in websocket:
 #        print("received:",len(message),"bytes")
+        timestamp,samples = array.array('q',message[:8]).tolist(), array.array('h',message[8:]).tolist()
+        print(len(message),timestamp,len(samples))
+        continue
         samples = array.array('h',message).tolist()
         for sample in samples:
             dc = dc*t + sample*(1-t)
