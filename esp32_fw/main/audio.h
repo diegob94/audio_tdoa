@@ -9,6 +9,8 @@
 #define I2S_DI_IO   4
 #define SAMPLE_RATE 48000
 
+#define BUFFER_SAMPLE_SIZE 256
+
 esp_err_t audio_init(void);
 esp_err_t audio_read(int32_t *, size_t, size_t *);
 

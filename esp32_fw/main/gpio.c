@@ -5,17 +5,19 @@
 #include "esp_wifi.h"
 
 #include "gpio.h"
+#include "hal/gpio_types.h"
+
+#include "audio.h"
 
 static const char *TAG = "gpio";
 static TaskHandle_t ledHandle = NULL;
 static void gpio_led_blink_task(void *);
-static TaskHandle_t ISRHandle = NULL;
-static void button_isr_handler(void*);
-static void gpio_sync_test_task(void *);
-static long long int tsf_time = 0;
+static void sync_input_isr_handler(void*);
+static int64_t tsf_time = 0;
+static int sample_count = 0;
 
-esp_err_t gpio_init_led(void) {
-    gpio_config_t io_conf = {
+esp_err_t my_gpio_init(void) {
+    gpio_config_t led_io_conf = {
         //disable interrupt
         .intr_type = GPIO_INTR_DISABLE,
         //set as output mode
@@ -27,30 +29,24 @@ esp_err_t gpio_init_led(void) {
         //disable pull-up mode
         .pull_up_en = 0,
     };
-    //configure GPIO with the given settings
-    gpio_config(&io_conf);
-    xTaskCreate(gpio_led_blink_task, "gpio_led_blink_task", 4096, NULL, 1, &ledHandle);
-    return ESP_OK;
-}
-
-esp_err_t gpio_init_sync_test_input(void) {
-    gpio_config_t io_conf = {
+    gpio_config_t sync_io_conf = {
         //disable interrupt
-        .intr_type = GPIO_INTR_ANYEDGE,
+        .intr_type = GPIO_INTR_NEGEDGE,
         //set as output mode
         .mode = GPIO_MODE_INPUT,
         //bit mask of the pins that you want to set,e.g.GPIO18/19
-        .pin_bit_mask = GPIO_SYNC_TEST_PIN_SEL,
+        .pin_bit_mask = GPIO_SYNC_PIN_SEL,
         //disable pull-down mode
         .pull_down_en = 0,
         //disable pull-up mode
         .pull_up_en = 0,
     };
     //configure GPIO with the given settings
-    gpio_config(&io_conf);
+    gpio_config(&led_io_conf);
+    gpio_config(&sync_io_conf);
+    xTaskCreate(gpio_led_blink_task, "gpio_led_blink_task", 4096, NULL, 1, &ledHandle);
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
-    gpio_isr_handler_add(GPIO_SYNC_TEST_PIN_NUM, button_isr_handler, NULL);
-    xTaskCreate(gpio_sync_test_task, "gpio_sync_test_task", 4096, NULL , 10, &ISRHandle);
+    gpio_isr_handler_add(GPIO_SYNC_PIN_NUM, sync_input_isr_handler, NULL);
     return ESP_OK;
 }
 
@@ -91,14 +87,16 @@ static void gpio_led_blink_task(void *pvParameters) {
     vTaskDelete(NULL);
 }
 
-static void button_isr_handler(void* arg) {
-    tsf_time = esp_wifi_get_tsf_time(WIFI_IF_STA);
-    xTaskResumeFromISR(ISRHandle);
-}
-
-static void gpio_sync_test_task(void *arg){
-    while(true) {
-        vTaskSuspend(NULL);
-        ESP_LOGI(TAG,"TSF time = %lld",tsf_time);
+static void sync_input_isr_handler(void* arg) {
+    if(sample_count==0){
+        tsf_time = esp_wifi_get_tsf_time(WIFI_IF_STA);
+    }
+    if(sample_count++ == BUFFER_SAMPLE_SIZE){
+        sample_count = 0;
     }
 }
+
+int64_t gpio_get_sync_time(){
+    return tsf_time;
+}
+

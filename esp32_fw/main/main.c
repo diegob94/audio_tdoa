@@ -29,8 +29,8 @@ void app_main(void) {
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
-    gpio_init_led();
-    //gpio_init_sync_test_input();
+    my_gpio_init();
+
     gpio_set_blink_period(500);
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     esp_err_t wifi_status = wifi_init_sta();
@@ -42,20 +42,29 @@ void app_main(void) {
         vTaskDelete(NULL);
     }
     ESP_LOGI(TAG,"wifi success");
+
     client_init();
     //client_test();
     audio_init();
 
-    int32_t samples[256];
-    int16_t buffer[256];
+    int64_t sync_time;
+    int32_t samples[BUFFER_SAMPLE_SIZE];
+    int16_t buffer[(sizeof(sync_time)/2) + BUFFER_SAMPLE_SIZE];
     size_t bytes_read = 0;
     while(true){
-        audio_read(samples, 256, &bytes_read);
+        audio_read(samples, BUFFER_SAMPLE_SIZE, &bytes_read);
+        sync_time = gpio_get_sync_time();
+        ESP_LOGI(TAG,"timestamp = %lld",sync_time);
+        buffer[0] = sync_time & 0xFFFF;
+        buffer[1] = (sync_time >> 16) & 0xFFFF;
+        buffer[2] = (sync_time >> (2*16)) & 0xFFFF;
+        buffer[3] = (sync_time >> (3*16)) & 0xFFFF;
         for(int i = 0; i < bytes_read/2; i++){
-            buffer[i] = samples[i]>>16;
+            buffer[i + (sizeof(sync_time)/2)] = samples[i]>>16;
         }
-        client_send(buffer,bytes_read/2);
+        client_send(buffer,sizeof(buffer));
         vTaskDelay(10);
+//        vTaskSuspend(NULL);
     }
 }
 
