@@ -3,6 +3,7 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_wifi.h"
+#include "esp_mesh.h"
 
 #include "gpio.h"
 #include "hal/gpio_types.h"
@@ -89,7 +90,7 @@ static void gpio_led_blink_task(void *pvParameters) {
 
 static void sync_input_isr_handler(void* arg) {
     if(sample_count==0){
-        tsf_time = esp_wifi_get_tsf_time(WIFI_IF_STA);
+        tsf_time = esp_mesh_get_tsf_time();
     }
     if(sample_count++ == BUFFER_SAMPLE_SIZE){
         sample_count = 0;

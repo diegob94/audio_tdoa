@@ -49,18 +49,21 @@ void app_main(void) {
 
     int64_t sync_time;
     int32_t samples[BUFFER_SAMPLE_SIZE];
-    int16_t buffer[(sizeof(sync_time)/2) + BUFFER_SAMPLE_SIZE];
+    uint16_t audio_id = CONFIG_TDOA_SIGNAL_ID;
+    int16_t buffer[sizeof(audio_id) + (sizeof(sync_time)/2) + BUFFER_SAMPLE_SIZE];
     size_t bytes_read = 0;
     while(true){
         audio_read(samples, BUFFER_SAMPLE_SIZE, &bytes_read);
         sync_time = gpio_get_sync_time();
+        ESP_LOGI(TAG,"audio_id = %u",audio_id);
         ESP_LOGI(TAG,"timestamp = %lld",sync_time);
-        buffer[0] = sync_time & 0xFFFF;
-        buffer[1] = (sync_time >> 16) & 0xFFFF;
-        buffer[2] = (sync_time >> (2*16)) & 0xFFFF;
-        buffer[3] = (sync_time >> (3*16)) & 0xFFFF;
+        buffer[0] = audio_id;
+        buffer[1] = sync_time & 0xFFFF;
+        buffer[2] = (sync_time >> 16) & 0xFFFF;
+        buffer[3] = (sync_time >> (2*16)) & 0xFFFF;
+        buffer[4] = (sync_time >> (3*16)) & 0xFFFF;
         for(int i = 0; i < bytes_read/2; i++){
-            buffer[i + (sizeof(sync_time)/2)] = samples[i]>>16;
+            buffer[i + (sizeof(audio_id) + (sizeof(sync_time)/2))] = samples[i]>>16;
         }
         client_send(buffer,sizeof(buffer));
         vTaskDelay(10);
