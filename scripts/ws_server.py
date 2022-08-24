@@ -3,6 +3,7 @@ import websockets
 import logging
 import array
 from math import log10
+from websockets.exceptions import ConnectionClosedError
 
 #logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -10,10 +11,19 @@ from math import log10
 async def echo(websocket):
     dc = 0
     t = 0.995
-    async for message in websocket:
+    while True:
+        try:
+            message = await websocket.recv()
+        except ConnectionClosedError as e:
+            print("Connection closed error:",e)
+            continue
 #        print("received:",len(message),"bytes")
-        timestamp,samples = array.array('q',message[:8]).tolist(), array.array('h',message[8:]).tolist()
-        print(len(message),timestamp,len(samples))
+        try:
+            audio_id,timestamp,samples = array.array('H',message[:2]).tolist()[0], array.array('q',message[2:2+8]).tolist()[0], array.array('h',message[2+8:]).tolist()
+        except ValueError:
+            print("Error: message cannot be decoded")
+            continue
+        print(len(message),audio_id,timestamp,len(samples))
         continue
         samples = array.array('h',message).tolist()
         for sample in samples:
