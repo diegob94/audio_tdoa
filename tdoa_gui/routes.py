@@ -6,13 +6,31 @@ import queue
 
 sock = Sock(app)
 queues = dict()
+connections = dict()
+connection_counter = 0
 
 @sock.route('/tx<int:transmitter_id>')
 def echo(ws,transmitter_id):
+    global connection_counter
+    connection_id = connection_counter
+    connection_counter += 1
     while True:
         data = ws.receive()
         print("ws receive:",transmitter_id,len(data))
-        queues.setdefault(transmitter_id,queue.Queue()).put_nowait(data)
+        q = queue.Queue()
+        if not transmitter_id in connections:
+            # new connection
+            queues[transmitter_id] = q
+            connections[transmitter_id] = connection_id
+        elif connection_id >= connections[transmitter_id]:
+            # connection exist or newer
+            q = queues[transmitter_id]
+            connections[transmitter_id] = connection_id
+        else:
+            # connection exist and not newer -> disconnect
+            break
+        q.put_nowait(data)
+    ws.close()
 
 @app.route("/")
 def home():

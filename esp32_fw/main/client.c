@@ -47,16 +47,16 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
         break;
     }
 }
-#define _GET_WS_URI(HOST,PORT) "ws://"HOST":"#PORT
-#define GET_WS_URI(HOST,PORT) _GET_WS_URI(HOST, PORT)
+#define _GET_WS_URI(HOST,PORT,ID) "ws://"HOST":"#PORT"/tx"#ID
+#define GET_WS_URI(HOST,PORT,ID) _GET_WS_URI(HOST, PORT, ID)
 
 static void ws_client_task(void *pvParameters){
     esp_websocket_client_config_t websocket_cfg = {};
 
-    websocket_cfg.uri = GET_WS_URI(CONFIG_TDOA_SERVER_IPV4_ADDR,CONFIG_TDOA_SERVER_PORT);
+    websocket_cfg.uri = GET_WS_URI(CONFIG_TDOA_SERVER_IPV4_ADDR,CONFIG_TDOA_SERVER_PORT,CONFIG_TDOA_SIGNAL_ID);
 
     while(true){
-        ESP_LOGI(TAG, "Main loop: Connecting to %s...", websocket_cfg.uri);
+        ESP_LOGI(TAG, "Main loop: Connecting to URL: %s", websocket_cfg.uri);
 
         esp_websocket_client_handle_t client = esp_websocket_client_init(&websocket_cfg);
         esp_websocket_register_events(client, WEBSOCKET_EVENT_ANY, websocket_event_handler, (void *)client);

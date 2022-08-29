@@ -4,9 +4,9 @@ import plotly.graph_objects as go
 import dash_bootstrap_components as dbc
 from dash_bootstrap_templates import load_figure_template
 from dash.dependencies import Input, Output
-import pybinn
 import numpy as np
 import queue
+from audio_tdoa.decode import decode
 
 def init_dashboard(server,queues):
     load_figure_template("darkly")
@@ -26,7 +26,7 @@ def init_dashboard(server,queues):
         except queue.Empty:
             pass
         try:
-            data = pybinn.loads(data)
+            data = decode(data)
         except AttributeError:
             return None
         print("plot receive:",transmitter_id,np.array(data).shape)

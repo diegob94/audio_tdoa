@@ -9,21 +9,25 @@ from websockets.exceptions import ConnectionClosedError
 
 
 async def echo(websocket):
+    audio_id = None
     dc = 0
     t = 0.995
+    tag = f"{websocket.id}_{audio_id}:"
     while True:
+        if websocket.closed:
+            break
+        tag = f"{websocket.id}_{audio_id}:"
         try:
             message = await websocket.recv()
         except ConnectionClosedError as e:
-            print("Connection closed error:",e)
-            continue
+            break
 #        print("received:",len(message),"bytes")
         try:
             audio_id,timestamp,samples = array.array('H',message[:2]).tolist()[0], array.array('q',message[2:2+8]).tolist()[0], array.array('h',message[2+8:]).tolist()
         except ValueError:
-            print("Error: message cannot be decoded")
+            print(tag,"Error: message cannot be decoded")
             continue
-        print(len(message),audio_id,timestamp,len(samples))
+        print(tag,len(message),audio_id,timestamp,len(samples))
         continue
         samples = array.array('h',message).tolist()
         for sample in samples:
@@ -31,6 +35,7 @@ async def echo(websocket):
             sample = sample - dc
             #print(f'{dc:.2f},{sample:.2f}')
             print('#'*int(abs(sample)))
+    print(tag,"Connection closed!!!!!!!!!!!")
 
 async def main():
     print("Starting server")
